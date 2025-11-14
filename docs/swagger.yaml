@@ -1,0 +1,375 @@
+basePath: /api
+definitions:
+  domain.AssignBookPayload:
+    properties:
+      return_date:
+        description: 'format: 2006-01-02'
+        type: string
+      user_email:
+        type: string
+    required:
+    - return_date
+    - user_email
+    type: object
+  domain.CreateBookPayload:
+    properties:
+      author:
+        type: string
+      bookcase:
+        type: string
+      genre:
+        type: string
+      title:
+        type: string
+    required:
+    - author
+    - bookcase
+    - genre
+    - title
+    type: object
+  domain.CreateLibrarianPayload:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  domain.CreateUserPayload:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: admin@library.com
+    name: API Support
+  description: API для управления библиотекой с ролями администратора и библиотекаря
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Library Management System API
+  version: "1.0"
+paths:
+  /admin/librarians:
+    get:
+      description: Возвращает список всех библиотекарей (только для администратора)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of librarians
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Получить всех библиотекарей
+      tags:
+      - Admin
+    post:
+      consumes:
+      - application/json
+      description: Создает нового библиотекаря (только для администратора)
+      parameters:
+      - description: Данные библиотекаря
+        in: body
+        name: librarian
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateLibrarianPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Librarian created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Создать библиотекаря
+      tags:
+      - Admin
+  /admin/librarians/{email}:
+    delete:
+      description: Удаляет библиотекаря по email (только для администратора)
+      parameters:
+      - description: Email библиотекаря
+        in: path
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Librarian deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Удалить библиотекаря
+      tags:
+      - Admin
+  /librarian/books:
+    get:
+      description: Возвращает список всех книг. Используйте ?with=users для получения
+        книг с информацией о пользователях
+      parameters:
+      - description: Включить дополнительные данные (users)
+        in: query
+        name: with
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of books
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Получить все книги
+      tags:
+      - Librarian - Books
+    post:
+      consumes:
+      - application/json
+      description: Добавляет новую книгу в библиотеку
+      parameters:
+      - description: Данные книги
+        in: body
+        name: book
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateBookPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Book created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Создать книгу
+      tags:
+      - Librarian - Books
+  /librarian/books/{id}:
+    delete:
+      description: Удаляет книгу по ID
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Book deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Удалить книгу
+      tags:
+      - Librarian - Books
+  /librarian/books/{id}/assign:
+    post:
+      consumes:
+      - application/json
+      description: Назначает книгу пользователю с датой возврата
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные назначения
+        in: body
+        name: assign
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AssignBookPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Book assigned successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Выдать книгу пользователю
+      tags:
+      - Librarian - Books
+  /librarian/books/{id}/return:
+    post:
+      description: Отмечает книгу как возвращенную
+      parameters:
+      - description: ID книги
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Book returned successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Вернуть книгу
+      tags:
+      - Librarian - Books
+  /librarian/users:
+    get:
+      description: Возвращает список всех пользователей. Используйте ?with=books для
+        получения пользователей с их книгами
+      parameters:
+      - description: Включить дополнительные данные (books)
+        in: query
+        name: with
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Получить всех пользователей
+      tags:
+      - Librarian - Users
+    post:
+      consumes:
+      - application/json
+      description: Создает нового пользователя библиотеки
+      parameters:
+      - description: Email пользователя
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateUserPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Создать пользователя
+      tags:
+      - Librarian - Users
+  /librarian/users/{email}:
+    delete:
+      description: Удаляет пользователя по email
+      parameters:
+      - description: Email пользователя
+        in: path
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Error message
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - Bearer: []
+      summary: Удалить пользователя
+      tags:
+      - Librarian - Users
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
