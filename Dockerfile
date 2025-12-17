@@ -10,10 +10,6 @@ RUN go mod download
 
 COPY . .
 
-RUN go install github.com/swaggo/swag/cmd/swag@latest
-
-RUN swag init -g cmd/main.go -o docs
-
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o library ./cmd/main.go
 
 FROM alpine:latest

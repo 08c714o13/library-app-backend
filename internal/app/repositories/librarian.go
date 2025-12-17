@@ -16,7 +16,16 @@ func NewLibrarianRepo(db *sql.DB) LibrarianRepo {
 }
 
 func (r LibrarianRepo) CreateLibrarian(email, name, hashPassword string) error {
-	_, err := r.db.Exec(`INSERT INTO "librarian" (email, name, hash_pass) VALUES ($1, $2, $3)`, email, name, hashPassword)
+	_, err := r.db.Exec(`
+        INSERT INTO "librarian" (email, name, hash_pass, is_deleted, created_at, updated_at) 
+        VALUES ($1, $2, $3, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (email) 
+        DO UPDATE SET 
+            name = EXCLUDED.name,
+            hash_pass = EXCLUDED.hash_pass,
+            is_deleted = false,
+            updated_at = CURRENT_TIMESTAMP
+    `, email, name, hashPassword)
 	return err
 }
 

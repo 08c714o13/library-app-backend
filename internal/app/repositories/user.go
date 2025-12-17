@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"database/sql"
+	"time"
 
 	"library/internal/app/domain"
 )
@@ -15,7 +16,14 @@ func NewUserRepo(db *sql.DB) UserRepo {
 }
 
 func (r UserRepo) CreateUser(email string) error {
-	_, err := r.db.Exec(`INSERT INTO "user" (email) VALUES ($1)`, email)
+	_, err := r.db.Exec(`
+    INSERT INTO "user" (email, is_deleted, created_at, updated_at) 
+    VALUES ($1, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT (email) 
+    DO UPDATE SET 
+        is_deleted = false,
+        updated_at = CURRENT_TIMESTAMP
+`, email)
 	return err
 }
 
@@ -39,60 +47,62 @@ func (r UserRepo) GetAllUsers() ([]domain.User, error) {
 	return users, nil
 }
 
-func (r UserRepo) GetAllUsersWithBooks() ([]domain.UserWithBooks, error) {
-	userRows, err := r.db.Query(`
-		SELECT email, created_at, updated_at
-		FROM "user"
-		WHERE is_deleted = false
-		ORDER BY created_at DESC
-	`)
+func (r UserRepo) GetAllUsersWithBooks() ([]domain.UserWithBooks, error) { // TODO
+	rows, err := r.db.Query(`
+    SELECT 
+        u.email, u.created_at, u.updated_at,
+        b.id, b.title, b.author, b.genre, b.bookcase, b.return_date
+    FROM "user" u
+    LEFT JOIN "book" b ON u.email = b.user_email AND b.user_email IS NOT NULL
+    ORDER BY u.created_at DESC, b.created_at DESC
+`)
 	if err != nil {
 		return nil, err
 	}
-	defer func(userRows *sql.Rows) {
-		_ = userRows.Close()
-	}(userRows)
+	defer rows.Close()
 
 	var users []domain.UserWithBooks
-	userMap := make(map[string]*domain.UserWithBooks)
+	userIndexMap := make(map[string]int)
 
-	for userRows.Next() {
-		var user domain.UserWithBooks
-		if err := userRows.Scan(&user.Email, &user.CreatedAt, &user.UpdatedAt); err != nil {
-			return nil, err
-		}
-		user.Books = []domain.BookInfo{}
-		users = append(users, user)
-		userMap[user.Email] = &users[len(users)-1]
-	}
+	for rows.Next() {
+		var email string
+		var createdAt, updatedAt time.Time
+		var bookID sql.NullString
+		var bookTitle, bookAuthor, bookGenre, bookBookcase sql.NullString
+		var returnDate sql.NullTime
 
-	bookRows, err := r.db.Query(`
-		SELECT
-			b.id, b.title, b.author, b.genre, b.bookcase, b.return_date, b.user_email
-		FROM "book" b
-		WHERE b.user_email IS NOT NULL
-		ORDER BY b.created_at DESC
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer func(bookRows *sql.Rows) {
-		_ = bookRows.Close()
-	}(bookRows)
-
-	for bookRows.Next() {
-		var book domain.BookInfo
-		var userEmail string
-
-		if err := bookRows.Scan(
-			&book.ID, &book.Title, &book.Author, &book.Genre, &book.Bookcase,
-			&book.ReturnDate, &userEmail,
+		if err := rows.Scan(
+			&email, &createdAt, &updatedAt,
+			&bookID, &bookTitle, &bookAuthor, &bookGenre, &bookBookcase, &returnDate,
 		); err != nil {
 			return nil, err
 		}
 
-		if user, exists := userMap[userEmail]; exists {
-			user.Books = append(user.Books, book)
+		// Создаем пользователя, если его еще нет в мапе
+		idx, exists := userIndexMap[email]
+		if !exists {
+			user := domain.UserWithBooks{
+				Email:     email,
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+				Books:     []domain.BookInfo{},
+			}
+			users = append(users, user)
+			idx = len(users) - 1
+			userIndexMap[email] = idx
+		}
+
+		// Добавляем книгу, если она есть
+		if bookID.Valid {
+			book := domain.BookInfo{
+				ID:         bookID.String,
+				Title:      bookTitle.String,
+				Author:     bookAuthor.String,
+				Genre:      bookGenre.String,
+				Bookcase:   bookBookcase.String,
+				ReturnDate: &returnDate.Time,
+			}
+			users[idx].Books = append(users[idx].Books, book)
 		}
 	}
 
